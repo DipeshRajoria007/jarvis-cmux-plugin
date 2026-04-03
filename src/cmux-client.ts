@@ -1,6 +1,10 @@
 import { connect, type Socket } from "net";
 
-const SOCKET_PATH = "/tmp/cmux.sock";
+import { homedir } from "os";
+import { join } from "path";
+
+const SOCKET_PATH =
+  process.env.CMUX_SOCKET ?? join(homedir(), "Library", "Application Support", "cmux", "cmux.sock");
 
 type JsonRpcResponse = {
   id: string;
@@ -143,6 +147,15 @@ export class CmuxClient {
 
   async identify(): Promise<unknown> {
     return this.call("system.identify");
+  }
+
+  async readSurfaceText(surfaceId: string): Promise<string> {
+    const result = await this.call<{ text?: string }>("surface.read_text", { surface_id: surfaceId });
+    return result?.text ?? "";
+  }
+
+  async createNotification(title: string, body: string, subtitle?: string): Promise<void> {
+    await this.call("notification.create", { title, body, subtitle });
   }
 
   disconnect() {

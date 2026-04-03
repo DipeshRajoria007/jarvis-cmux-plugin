@@ -1,11 +1,13 @@
 import { CmuxClient } from "./cmux-client.ts";
 import { EventListener } from "./event-listener.ts";
-import { speak, speakJarvis } from "./speaker.ts";
+import { speakJarvis } from "./speaker.ts";
 import { VoiceLoop } from "./voice-loop.ts";
 import { Router } from "./router.ts";
+import { MetaAgent } from "./meta-agent.ts";
 
 const client = new CmuxClient();
 const router = new Router(client);
+const meta = new MetaAgent(client);
 
 async function main() {
   console.log("[JARVIS] Starting up...");
@@ -40,30 +42,39 @@ async function main() {
       "Task completed";
     await speakJarvis(text);
   });
-
   listener.start();
   console.log("[JARVIS] Listening for notifications...");
 
+  // Meta-agent — monitor all sessions, narrate state changes
+  meta.start();
+  console.log("[JARVIS] Meta-agent monitoring sessions...");
+
   // Voice loop — listen → transcribe → route → speak result
   const voiceLoop = new VoiceLoop(async (text) => {
-    // Refresh surfaces before routing
     await router.refreshSurfaces();
+
+    // Handle "status" or "what's happening" via meta-agent
+    const lower = text.toLowerCase();
+    if (lower.includes("status") || lower.includes("what's happening") || lower.includes("what is happening")) {
+      const summary = meta.getSummary();
+      await speakJarvis(summary);
+      return;
+    }
 
     const parsed = router.parse(text);
     const response = await router.execute(parsed);
     await speakJarvis(response);
   });
-
-  // Start voice loop in background (non-blocking)
   voiceLoop.start();
 
   // Speak startup confirmation
-  await speakJarvis("Jarvis online. Listening.");
+  await speakJarvis("Jarvis online. Monitoring all sessions.");
 
   // Keep alive
   process.on("SIGINT", () => {
     console.log("\n[JARVIS] Shutting down...");
     voiceLoop.stop();
+    meta.stop();
     listener.stop();
     client.disconnect();
     process.exit(0);
