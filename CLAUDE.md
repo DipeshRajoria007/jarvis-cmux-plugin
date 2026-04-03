@@ -120,6 +120,114 @@ jarvis-cmux-plugin/
 
 ~360 lines total. Six files. That's it.
 
+## Autonomous Development Strategy (Zero Human-in-the-Loop)
+
+This project should be buildable by Claude with almost zero human intervention. The user says "build this feature" and it arrives working. Here's how:
+
+### Self-Validation Loop
+
+Every change follows this cycle — Claude does ALL of it, not the human:
+
+```
+Write code → Run it → Does it work? → No → Read error → Fix → Run again
+                          ↓ Yes
+                     Commit & move on
+```
+
+### How Claude Validates Its Own Work
+
+1. **TypeScript strict mode** — compiler catches type errors without running anything
+2. **Integration tests against real cmux socket** — if cmux is running, test against it. If not, test the client serialization/parsing in isolation
+3. **Audio tests** — spawn `say` and verify it doesn't crash. Spawn ffmpeg recording for 1s and verify a WAV file appears
+4. **End-to-end smoke test** — `bun run dev` should start without errors. A test script sends a fake notification via cmux socket and verifies Jarvis speaks it
+
+### What to Test (and What NOT to)
+
+**DO test:**
+- cmux socket client sends valid JSON-RPC and parses responses
+- Voice transcription produces text from a known audio file
+- Router correctly maps "tell session 2 to X" → right surface_id
+- Daemon starts, connects to socket, doesn't crash
+
+**DON'T test:**
+- Type definitions
+- Config schemas
+- Utility functions with obvious behavior
+- Anything that's just plumbing
+
+### Quality Gate
+
+```bash
+bun run check   # typecheck + lint + test + build (all must pass)
+```
+
+But ONLY run this before committing. During development, just run the code and see if it works.
+
+### Build Order (Critical Path)
+
+Build in this exact order. Each step must work before moving to the next:
+
+```
+Step 1: cmux socket client
+        → Can send JSON-RPC, receive response
+        → Validate: call system.ping, get pong
+
+Step 2: Event listener
+        → Polls notification.list every 2s
+        → Detects new notifications
+        → Validate: manually create notification via cmux CLI,
+          verify daemon picks it up
+
+Step 3: Speaker
+        → macOS say wrapper
+        → Validate: speaks "hello world" audibly
+
+Step 4: Wire steps 1-3 together
+        → Notification arrives → Jarvis speaks it
+        → THIS IS THE FIRST WOW MOMENT. Demo it here.
+
+Step 5: Voice recording
+        → ffmpeg records from mic for N seconds
+        → Saves WAV to /tmp
+        → Validate: file exists, has audio content
+
+Step 6: Voice transcription
+        → whisper.cpp transcribes WAV → text
+        → Validate: known phrase produces correct text
+
+Step 7: Voice command router
+        → Parse "tell session 2 to build the login page"
+        → Map to surface.send_text on the right pane
+        → Validate: text appears in target pane
+
+Step 8: Wire steps 5-7 into voice loop
+        → Continuous: record → transcribe → route → repeat
+        → THIS IS THE FULL JARVIS MOMENT.
+
+Step 9: Sidebar status
+        → set_status pills showing which agents are busy/idle
+        → log entries for recent completions
+        → Polish pass.
+```
+
+### Error Recovery
+
+If something doesn't work:
+1. **Read the actual error.** Don't guess.
+2. **Check if cmux is running.** Socket won't exist if it's not.
+3. **Check if whisper.cpp is installed.** `which whisper-cpp` or `which whisper`.
+4. **Check ffmpeg mic access.** `ffmpeg -f avfoundation -i ":0" -t 1 -y /tmp/test.wav` — if this fails, mic permissions are the issue.
+5. **Don't add abstractions to work around errors.** Fix the root cause.
+
+### What the Human Does
+
+The human's only job is:
+1. Say what feature they want
+2. Grant macOS permissions if prompted (mic, accessibility)
+3. Say "it works" or "it doesn't work, I see X"
+
+Everything else — writing code, running tests, fixing bugs, committing — is Claude's job.
+
 ## Development Rules
 
 - **No commits until something works end-to-end.** Get the demo working first.
