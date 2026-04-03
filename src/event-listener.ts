@@ -24,11 +24,22 @@ export class EventListener {
     this.pollMs = pollMs;
   }
 
+  /** Seed seen IDs with existing notifications so we don't speak old ones */
+  async init() {
+    try {
+      const notifications = (await this.client.listNotifications()) as Notification[];
+      if (Array.isArray(notifications)) {
+        for (const n of notifications) {
+          this.seenIds.add(n.id ?? JSON.stringify(n));
+        }
+        console.log(`[EVENTS] Skipping ${this.seenIds.size} existing notifications`);
+      }
+    } catch {}
+  }
+
   start() {
     if (this.interval) return;
     this.interval = setInterval(() => this.poll(), this.pollMs);
-    // Poll immediately on start
-    this.poll();
   }
 
   stop() {
