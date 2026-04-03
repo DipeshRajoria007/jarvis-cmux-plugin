@@ -1,0 +1,20 @@
+{
+  "commands": [
+    {
+      "name": "Jarvis",
+      "description": "Launch voice-controlled AI agent manager",
+      "keywords": ["voice", "jarvis", "agent"],
+      "workspace": {
+        "name": "Jarvis",
+        "layout": {
+          "direction": "horizontal",
+          "split": 0.75,
+          "children": [
+            { "surfaces": [{ "type": "terminal", "name": "Claude Code", "focus": true }] },
+            { "surfaces": [{ "type": "terminal", "name": "Jarvis", "command": "cd ~/code/jarvis-cmux-plugin && bun run dev" }] }
+          ]
+        }
+      }
+    }
+  ]
+}
