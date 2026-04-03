@@ -114,7 +114,8 @@ export class CmuxClient {
   }
 
   async listNotifications(): Promise<unknown[]> {
-    return this.call<unknown[]>("notification.list");
+    const result = await this.call<{ notifications?: unknown[] }>("notification.list");
+    return result?.notifications ?? [];
   }
 
   async clearNotifications(): Promise<void> {
@@ -122,11 +123,13 @@ export class CmuxClient {
   }
 
   async listWorkspaces(): Promise<unknown[]> {
-    return this.call<unknown[]>("workspace.list");
+    const result = await this.call<{ workspaces?: unknown[] }>("workspace.list");
+    return result?.workspaces ?? [];
   }
 
   async listSurfaces(): Promise<unknown[]> {
-    return this.call<unknown[]>("surface.list");
+    const result = await this.call<{ surfaces?: unknown[] }>("surface.list");
+    return result?.surfaces ?? [];
   }
 
   async sendText(surfaceId: string, text: string): Promise<void> {

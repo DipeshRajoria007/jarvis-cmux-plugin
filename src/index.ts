@@ -35,13 +35,17 @@ async function main() {
 
   // Event listener — speak notifications
   const listener = new EventListener(client, async (notification) => {
-    const text =
+    const raw =
       notification.body ??
       notification.message ??
       notification.title ??
       "Task completed";
-    await speakJarvis(text);
+    // Keep it short — just the first sentence, max 100 chars
+    const text = raw.split(/[.!?\n]/)[0]?.slice(0, 100) ?? "Task completed";
+    const source = notification.subtitle ?? "";
+    await speakJarvis(source ? `${source}: ${text}` : text);
   });
+  await listener.init(); // Mark existing notifications as seen
   listener.start();
   console.log("[JARVIS] Listening for notifications...");
 
@@ -63,7 +67,7 @@ async function main() {
 
     const parsed = router.parse(text);
     const response = await router.execute(parsed);
-    await speakJarvis(response);
+    if (response) await speakJarvis(response);
   });
   voiceLoop.start();
 
